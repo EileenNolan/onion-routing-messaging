@@ -3,7 +3,6 @@ extern crate rsa;
 extern crate sha2;
 
 mod crypto;
-mod tulip;
 mod intermediary_node;
 mod shared;
 mod onion;

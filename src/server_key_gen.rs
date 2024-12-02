@@ -1,7 +1,6 @@
 #![allow(warnings)]
 mod crypto;
 mod intermediary_node;
-mod tulip;
 mod onion;
 mod shared;
 use std::io::{self};

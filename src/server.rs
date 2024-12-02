@@ -1,7 +1,6 @@
 #![allow(warnings)]
 extern crate rsa;
 mod crypto;
-mod tulip;
 mod shared;
 mod onion;
 use crypto::{read_pubkey_list, read_seckey_list, update_user_list};
