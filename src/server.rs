@@ -3,9 +3,9 @@ extern crate rsa;
 mod crypto;
 mod tulip;
 mod shared;
-
+mod onion;
 use crypto::{read_pubkey_list, read_seckey_list, update_user_list};
-use tulip::process_tulip;
+use onion::process_onion;
 use rsa::{RsaPublicKey, pkcs1::DecodeRsaPublicKey};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
@@ -104,33 +104,45 @@ fn handle_client(
                 break;
             }
             Ok(_) => {
-                // clean the received message and debug
+                // Clean the received message and debug
                 let received_message = buffer.trim().to_string();
                 println!("Received message: {:?}", received_message);
 
-                // split the received message format: Recipient_ID|Enc_R_PK(sym_K4)|Enc_symK4(message)
-                let parts: Vec<&str> = received_message.split("--").collect();
+                // Step 2: Split the received message format: Recipient_ID|Enc_R_PK(sym_K4)|Enc_symK4(message)
+                let parts: Vec<&str> = received_message.split('|').collect();
                 println!("Parsed parts: {:?}", parts);
 
-                // ensure the message format has three parts (Recipient ID, Encrypted Public Key, Encrypted Message)
-                if parts.len() != 2 {
+                // Step 3: Ensure the message format has three parts (Recipient ID, Encrypted Public Key, Encrypted Message)
+                if parts.len() != 3 {
                     eprintln!("Invalid message format");
                     continue;
                 }
 
-                let first_node = parts[0];
-                let tulip = parts[1];
                 // pass in the node registry instead of the secret keys list. Then allow individual intermediary nodes to do decryption
                 let registry = node_registry.lock().unwrap();
-                let tulip_result = process_tulip(tulip, first_node, &registry);
-                assert!(tulip_result.is_ok(), "processing tulip failed: {:?}", tulip_result);
+                let onion_result = process_onion(&received_message, &registry);
+                assert!(onion_result.is_ok(), "processing onion failed: {:?}", onion_result);
 
-                let (recipient, current_tulip) = tulip_result.unwrap();
+                let onion_result_string = onion_result.unwrap();
+                // Split the resulting string
+                let parts: Vec<&str> = onion_result_string.split('|').collect();
+                assert!(parts.len() == 3, "Invalid onion result format: {:?}", parts);
+
+                let recipient = parts[0];          // Extract recipient
+                let enc_sym_key = parts[1];        // Extract encrypted symmetric key
+                let encrypted_message = parts[2];  // Extract encrypted message
+
+                // Print statements for debugging
+                println!("Recipient: {}", recipient);
+                println!("Encrypted Symmetric Key: {}", enc_sym_key);
+                println!("Encrypted Message: {}", encrypted_message);
+
 
                 // find the recipient's stream and send the entire decrypted message
                 let clients = clients.lock().unwrap();
-                if let Some(mut recipient_stream) = clients.get(&recipient) {
-                    if let Err(e) = recipient_stream.write_all(current_tulip.as_bytes()) {
+                if let Some(mut recipient_stream) = clients.get(recipient) {
+                    let message_to_send = format!("{}|{}|{}", recipient, enc_sym_key, encrypted_message);
+                    if let Err(e) = recipient_stream.write_all(message_to_send.as_bytes()) {
                         eprintln!("Failed to send message to recipient '{}': {}", recipient, e);
                     }
                 } else {

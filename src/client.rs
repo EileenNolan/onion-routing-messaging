@@ -6,7 +6,7 @@ mod crypto;
 mod tulip;
 mod intermediary_node;
 mod shared;
-
+mod onion;
 
 use std::net::TcpStream;
 use std::io::{self, Write, Read};
@@ -16,7 +16,7 @@ use crypto::{read_pubkey_list, generate_pubkey};
 use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey, LineEnding};
 use rsa::RsaPublicKey; 
 use std::collections::HashMap;
-use tulip::{tulip_encrypt, tulip_receive};
+use onion::{onion_encrypt, onion_receive};
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -91,8 +91,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // for now this only includes the current symmetric key for the node
                         println!("Raw received message: {}", received_message);
 
-                        let result_message = tulip_receive(&received_message.to_string(), &personal_seckey);
-                        assert!(result_message.is_ok(), "tulip_receive failed: {:?}", result_message);
+                        let result_message = onion_receive(&received_message.to_string(), &personal_seckey);
+                        assert!(result_message.is_ok(), "onion_receive failed: {:?}", result_message);
 
                         let message = result_message.unwrap();
                         println!("Received message: {}", message);
@@ -132,8 +132,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 // phuoc: I will just focus on tulip sampling now, I will need to delete the onion sampling code
                 // select up to three mixers from server_nodes, with their IDs and public keys
-                println!("Choosing 3 random mixers.");
-                let selected_mixers: Vec<(&str, &RsaPublicKey)> = server_nodes_locked
+                println!("Choosing 3 random intermediary nodes.");
+                let selected_server_nodes: Vec<(&str, &RsaPublicKey)> = server_nodes_locked
                     .iter()
                     .take(3)  // Get the first three nodes if available
                     .map(|(id, pubkey)| (id.as_str(), pubkey))
@@ -141,46 +141,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 
                 // ensure we have exactly three nodes for encryption
-                if selected_mixers.len() < 3 {
+                if selected_server_nodes.len() < 3 {
                     println!("Insufficient mixers available for tulip encryption.");
                     continue;
                 }
 
-                println!("Choosing 2 random gatekeepers.");
-                let selected_gatekeepers: Vec<(&str, &RsaPublicKey)> = server_nodes_locked
-                    .iter()
-                    .take(2)  // Get the first three nodes if available
-                    .map(|(id, pubkey)| (id.as_str(), pubkey))
-                    .collect();
-
-
-                // ensure we have exactly three nodes for encryption
-                if selected_gatekeepers.len() < 2 {
-                    println!("Insufficient gatekeepers available for tulip encryption.");
-                    continue;
-                }
-
                 // perform onion encryption using helper function defined below
-                // let encrypted_onion = onion_encrypt(&message, &recipient_pubkey, &recipient, &selected_server_nodes)?;
-
-                // tulip encryption
-                let nonce_list_len = selected_mixers.len() + selected_gatekeepers.len();
-                let nonce_list = vec![&[0; 12]; nonce_list_len];
-                let encrypted_tulip = tulip_encrypt(&message, &recipient_pubkey, &recipient, &selected_mixers, &selected_gatekeepers, &nonce_list, &2);
-
-                assert!(encrypted_tulip.is_ok(), "tulip_encrypt failed: {:?}", encrypted_tulip);
-                let tulip = encrypted_tulip.unwrap();
-
-                let first_mixer = selected_mixers[0].0.to_string();
-                
-                let message_to_server = format!(
-                    "{}--{}",
-                    first_mixer,
-                    tulip,
-                );
+                let encrypted_onion = onion_encrypt(&message, &recipient_pubkey, &recipient, &selected_server_nodes)?;
             
                 // send onion-encrypted message over the stream
-                if let Err(e) = stream.write_all(message_to_server.as_bytes()) {
+                if let Err(e) = stream.write_all(encrypted_onion.as_bytes()) {
                     eprintln!("Failed to send message: {}", e);
                 } else {
                     println!("Message sent successfully.");
