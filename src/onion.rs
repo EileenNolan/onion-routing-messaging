@@ -9,66 +9,7 @@ use std::{collections::HashMap, str};
 
 use sha2::{Sha256, Digest};
 
-use crate::shared::IntermediaryNode;
-
-// // eileen function to decrypt the onion received from client
-// pub fn onion_decrypt(
-//     onion: &str,
-//     node_secrets: &HashMap<String, RsaPrivateKey>, // Maps node IDs to their private keys
-// ) -> Result<String, Box<dyn std::error::Error>> {
-//     let mut current_layer = onion.to_string();
-    
-//     // loop to decrypt each of the 3 layers, from outermost to innermost
-//     for _ in 0..3 { // We know there are 3 nodes, so we decrypt 3 layers
-//         // Split the current layer into three parts: node_id, encrypted symmetric key, and encrypted layer
-//         let parts: Vec<&str> = current_layer.split('|').collect();
-//         if parts.len() != 3 {
-//             return Err("Invalid onion layer format".into());
-//         }
-
-//         let node_id = parts[0];          // Current node's ID
-//         let enc_sym_key = parts[1];      // Encrypted symmetric key for the current layer
-//         let encrypted_layer = parts[2];  // The encrypted layer content
-
-//         // get the private key for the current node
-//         let node_seckey = node_secrets.get(node_id).ok_or("Node ID not found")?;
-
-//         // Decrypt the symmetric key for the current layer using the current node's private key
-//         let enc_sym_key_bytes = STANDARD.decode(enc_sym_key)?;
-//         let sym_key_bytes = node_seckey.decrypt(Pkcs1v15Encrypt, &enc_sym_key_bytes)?;
-
-//         // decrypt the layer content using the symmetric key for the current layer
-//         let aes_gcm = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&sym_key_bytes));
-//         let nonce = Nonce::from_slice(&[0; 12]); // Use a constant nonce
-
-//         let decrypted_layer = aes_gcm.decrypt(nonce, &*STANDARD.decode(encrypted_layer)?)?;
-
-//         // Convert the decrypted layer back to a string for the next iteration
-//         current_layer = String::from_utf8_lossy(&decrypted_layer).into_owned();
-
-//         //println!("Current layer after decryption: {}", current_layer); //debugging
-//     }
-
-//     // ater decrypting all layers, we expect the final layer to contain:
-//     // 1. The recipient ID
-//     // 2. The encrypted symmetric key for the recipient
-//     // 3. The encrypted message
-
-//     let parts: Vec<&str> = current_layer.split('|').collect();
-//     if parts.len() != 3 {
-//         return Err("Final layer format invalid".into());
-//     }
-
-//     let recipient_id = parts[0];   // Recipient's ID
-//     let enc_sym_key = parts[1];    // Encrypted symmetric key for the recipient
-//     let encrypted_message = parts[2]; // The encrypted message
-
-//     // format the final result into a single string compatible with client's parsing
-//     let result = format!("{}|{}|{}", recipient_id, enc_sym_key, encrypted_message);
-
-//     Ok(result) // Return the formatted string to the client
-// }
-
+use crate::{globals, shared::IntermediaryNode};
 
 pub fn process_onion(
     onion: &str,
@@ -102,7 +43,8 @@ pub fn process_onion(
     let mut final_enc_sym_key = String::new();
     let mut final_encrypted_message = String::new();
 
-    for hop_index in 0..3 {
+
+    for hop_index in 0..globals::GLOBAL_INTERMED_NODES {
         let result = current_node_obj.onion_decrypt(&current_onion, &curr_enc_sym_key)?;
         let result_owned = result.to_string();
 
@@ -111,7 +53,7 @@ pub fn process_onion(
             return Err("Final layer format invalid".into());
         }
 
-        if hop_index < 2 {
+        if hop_index < (globals::GLOBAL_INTERMED_NODES - 1) {
             let node_id = parts[0].to_string();
             let enc_sym_key = parts[1].to_string();
             let encrypted_layer = parts[2].to_string();

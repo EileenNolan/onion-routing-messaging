@@ -6,7 +6,7 @@ mod crypto;
 mod intermediary_node;
 mod shared;
 mod onion;
-
+mod globals;
 use std::net::TcpStream;
 use std::io::{self, Write, Read};
 use std::sync::{Arc, Mutex};
@@ -131,17 +131,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 // phuoc: I will just focus on tulip sampling now, I will need to delete the onion sampling code
                 // select up to three mixers from server_nodes, with their IDs and public keys
-                println!("Choosing 3 random intermediary nodes.");
+                //TEST EDIT HERE NUMBER OF NODES
+
+                if globals::GLOBAL_INTERMED_NODES > server_nodes_locked.len(){
+                    return Err("Gloabl Variable of Intermediary Nodes is larger than selected intermediary nodes when running server key gen".into());
+                }
+
+                println!("Choosing GLOBAL_INTERMED_NODES random intermediary nodes.");
                 let selected_server_nodes: Vec<(&str, &RsaPublicKey)> = server_nodes_locked
                     .iter()
-                    .take(3)  // Get the first three nodes if available
+                    .take(globals::GLOBAL_INTERMED_NODES)  // Get the first three nodes if available
                     .map(|(id, pubkey)| (id.as_str(), pubkey))
                     .collect();
 
 
                 // ensure we have exactly three nodes for encryption
-                if selected_server_nodes.len() < 3 {
-                    println!("Insufficient mixers available for tulip encryption.");
+                if selected_server_nodes.len() < 5 {
+                    println!("Insufficient nodes available for onion encryption.");
                     continue;
                 }
 

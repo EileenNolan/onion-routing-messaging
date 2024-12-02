@@ -3,6 +3,7 @@ extern crate rsa;
 mod crypto;
 mod shared;
 mod onion;
+mod globals;
 use crypto::{read_pubkey_list, read_seckey_list, update_user_list};
 use onion::process_onion;
 use rsa::{RsaPublicKey, pkcs1::DecodeRsaPublicKey};
