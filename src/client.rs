@@ -5,6 +5,7 @@ extern crate sha2;
 mod crypto;
 mod intermediary_node;
 mod shared;
+use std::time::Instant;
 mod onion;
 mod globals;
 use std::net::TcpStream;
@@ -57,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // clone Arc to move into thread
             let mut read_stream = stream.try_clone().unwrap();
             let existing_users_thread = Arc::clone(&existing_users);
-            
+            let mut start2 = Instant::now();
             thread::spawn(move || {
                 let mut buffer = [0; 512];
                 // ensure there is something to fetch from buffer
@@ -89,10 +90,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // later we will add these indexes into the metadata of the onion, specifically in the part encrypted with the public key
                         // for now this only includes the current symmetric key for the node
                         println!("Raw received message: {}", received_message);
-
+                        //start timer for client to decrypt their final part of onion
+                        let start3 = Instant::now();
                         let result_message = onion_receive(&received_message.to_string(), &personal_seckey);
                         assert!(result_message.is_ok(), "onion_receive failed: {:?}", result_message);
-
+                        let duration3 = start3.elapsed();
+                        let duration2 = start2.elapsed();
+                        println!("TIMER RESULT: End-to-end delivery time: {:?}", duration2);
+                        println!("TIMER RESULT: Time for client to decrypt final part of onion:  {:?}", duration3);
                         let message = result_message.unwrap();
                         println!("Received message: {}", message);
                     }
@@ -145,15 +150,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .collect();
 
 
-                // ensure we have exactly three nodes for encryption
-                if selected_server_nodes.len() < 5 {
+                // ensure we have exactly -- nodes for encryption
+                if selected_server_nodes.len() < 1 {
                     println!("Insufficient nodes available for onion encryption.");
                     continue;
                 }
 
+
+                //STARTING CLIENT TIMER
+                let start = Instant::now();
+                start2 = Instant::now();
                 // perform onion encryption using helper function defined below
                 let encrypted_onion = onion_encrypt(&message, &recipient_pubkey, &recipient, &selected_server_nodes)?;
-            
+                let duration = start.elapsed();
+                println!("TIMER RESULTS: Time taken to encrypt message for client: {:?}", duration);
                 // send onion-encrypted message over the stream
                 if let Err(e) = stream.write_all(encrypted_onion.as_bytes()) {
                     eprintln!("Failed to send message: {}", e);

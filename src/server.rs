@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::thread;
 use std::io::{BufRead, BufReader};
+use std::time::Instant;
 mod intermediary_node;
 use crate::shared::IntermediaryNode; // Import from shared.rs
 
@@ -120,8 +121,13 @@ fn handle_client(
 
                 // pass in the node registry instead of the secret keys list. Then allow individual intermediary nodes to do decryption
                 let registry = node_registry.lock().unwrap();
+
+                //STARTING TIMER
+                let start = Instant::now();
                 let onion_result = process_onion(&received_message, &registry);
                 assert!(onion_result.is_ok(), "processing onion failed: {:?}", onion_result);
+                let duration = start.elapsed();
+                println!("TIMER START: Time taken to decrypt all intermediary nodes of onion: {:?}", duration);
 
                 let onion_result_string = onion_result.unwrap();
                 // Split the resulting string
