@@ -155,7 +155,10 @@ pub fn onion_encrypt(
 
     // FINAL layer - Add a newline here to mark the end of the onion message
     let final_onion = format!("{}\n", layer);  // Adding the newline at the very end
-
+    
+    let final_onion_size = final_onion.as_bytes().len(); // Size in bytes
+    let final_onion_size_kb = final_onion_size as f64 / 1024.0; // Size in KB
+    println!("Onion size before returning in tulip.rs: {:.2} KB", final_onion_size_kb);
     // after completing all layers, `layer` now represents the fully encrypted onion
     Ok(final_onion)
 }
