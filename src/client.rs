@@ -12,6 +12,7 @@ use std::net::TcpStream;
 use std::io::{self, Write, Read};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use chrono::Local;
 use crypto::{read_pubkey_list, generate_pubkey};
 use rsa::pkcs1::{DecodeRsaPublicKey, EncodeRsaPublicKey, LineEnding};
 use rsa::RsaPublicKey; 
@@ -20,12 +21,13 @@ use onion::{onion_encrypt, onion_receive};
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
     match TcpStream::connect("127.0.0.1:7878") {
         Ok(mut stream) => {
-            println!("Successfully connected to server on port 7878");
+            eprintln!("Successfully connected to server on port 7878");
 
             // prompt for username
-            println!("Enter your username:");
+            eprintln!("Enter your username:");
             let mut username = String::new();
             io::stdin().read_line(&mut username).unwrap();
 
@@ -42,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let server_nodes = Arc::new(Mutex::new(
                 server_ids.into_iter().zip(server_pubkeys.into_iter()).collect::<HashMap<String, RsaPublicKey>>(),
             ));
-            println!("Loaded server public keys from PKKeys.txt");
+            //println!("Loaded server public keys from PKKeys.txt");
 
             // load existing users and their public keys from UserKeys.txt into HashMap
             let (usernames, user_pubkeys) = read_pubkey_list("UserKeys.txt").expect("Failed to read user public keys from UserKeys.txt");
@@ -50,7 +52,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let existing_users = Arc::new(Mutex::new(
                 usernames.into_iter().zip(user_pubkeys.into_iter()).collect::<HashMap<String, RsaPublicKey>>(),
             ));
-            println!("Loaded existing user public keys from UserKeys.txt");
+            //println!("Loaded existing user public keys from UserKeys.txt");
 
             // ---------- RECEIVING MESSAGES ------------ //
 
@@ -76,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 // insert new user into the existing_users HashMap
                                 let mut users_lock = existing_users_thread.lock().unwrap();
                                 users_lock.insert(new_username.clone(), new_pubkey);
-                                println!("Added new user {} with public key", new_username);
+                                //println!("Added new user {} with public key", new_username);
                             },
                             Err(e) => {
                                 eprintln!("Failed to decode public key for {}: {}", new_username, e);
@@ -89,17 +91,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         // using index 4 here because we are using three intermediary nodes, so the recipient will have index 4
                         // later we will add these indexes into the metadata of the onion, specifically in the part encrypted with the public key
                         // for now this only includes the current symmetric key for the node
-                        println!("Raw received message: {}", received_message);
+                        //println!("Raw received message: {}", received_message);
                         //start timer for client to decrypt their final part of onion
                         let start3 = Instant::now();
                         let result_message = onion_receive(&received_message.to_string(), &personal_seckey);
                         assert!(result_message.is_ok(), "onion_receive failed: {:?}", result_message);
                         let duration3 = start3.elapsed();
                         let duration2 = start2.elapsed();
-                        println!("TIMER RESULT: End-to-end delivery time: {:?}", duration2);
+                        //println!("TIMER RESULT: End-to-end delivery time: {:?}", duration2);
                         println!("TIMER RESULT: Time for client to decrypt final part of onion:  {:?}", duration3);
                         let message = result_message.unwrap();
-                        println!("Received message: {}", message);
+                        eprintln!("Received message: {}", message);
+                        let now = Local::now(); // Get the current local time
+                        println!("End-to-end finish now: {}", now);
                     }
                 }
             });
@@ -107,19 +111,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // eileen edits to main thread loop for sending messages
             // ---------- SENDING ENCRYPTED MESSAGES ------------ //
             loop {
-                println!("Enter recipient:");
+                eprintln!("Enter recipient:");
                 let mut recipient = String::new();
                 io::stdin().read_line(&mut recipient).unwrap();
                 let recipient = recipient.trim().to_string();
             
-                println!("Enter your message:");
+                eprintln!("Enter your message:");
                 let mut message = String::new();
                 io::stdin().read_line(&mut message).unwrap();
                 let username = username.trim().to_string();
                 let no_username_message = message.trim().to_string();
                 let message = format!("(from {}) {}", username, no_username_message);
 
-
+                let now = Local::now(); // Get the current local time
+                println!("TIMER RESULT: End-to-end start now: {}", now);
 
 
                 // encrypt the initial message with a symmetric key for the recipient
@@ -142,7 +147,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     return Err("Gloabl Variable of Intermediary Nodes is larger than selected intermediary nodes when running server key gen".into());
                 }
 
-                println!("Choosing GLOBAL_INTERMED_NODES random intermediary nodes.");
+                //println!("Choosing GLOBAL_INTERMED_NODES random intermediary nodes.");
                 let selected_server_nodes: Vec<(&str, &RsaPublicKey)> = server_nodes_locked
                     .iter()
                     .take(globals::GLOBAL_INTERMED_NODES)  // Get the first three nodes if available

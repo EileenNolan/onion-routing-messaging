@@ -1,1 +1,1 @@
-pub static GLOBAL_INTERMED_NODES: usize = 8;
+pub static GLOBAL_INTERMED_NODES: usize = 4;

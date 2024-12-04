@@ -19,11 +19,12 @@ pub fn process_onion(
     This function is for the server to loop through its nodes and process the tulip, 
     then get the final recipient. It uses the node_registry to access nodes' secrets.
     */
-    println!("In process onion");
+    //println!("In process onion");
     let current_layer = onion.to_string();
     let parts: Vec<&str> = current_layer.split('|').collect();
 
     let node_id = parts[0].to_string();
+    //eprintln!("first node id_: {}", node_id);
     let enc_sym_key = parts[1].to_string();
     let encrypted_layer = parts[2].to_string();
 
@@ -31,9 +32,9 @@ pub fn process_onion(
     let mut current_onion = encrypted_layer.clone();
     let mut curr_enc_sym_key = enc_sym_key.clone();
 
-    println!("Initial current_node: {}", current_node);
-    println!("Initial current_onion: {}", current_onion);
-    println!("Initial curr_enc_sym_key: {}", curr_enc_sym_key);
+    //println!("Initial current_node: {}", current_node);
+    //println!("Initial current_onion: {}", current_onion);
+    //println!("Initial curr_enc_sym_key: {}", curr_enc_sym_key);
 
     let mut current_node_obj = node_registry
         .get(&current_node)
@@ -63,12 +64,13 @@ pub fn process_onion(
                 .ok_or("Next node ID not found in registry")?;
 
             current_node = node_id;
+            //eprintln!("curent node id: {}", current_node);
             curr_enc_sym_key = enc_sym_key;
             current_onion = encrypted_layer;
 
-            println!("Current node ID: {}", current_node_obj.id);
-            println!("Current onion: {}", current_onion);
-            println!("Current enc_sym_key: {}", curr_enc_sym_key);
+            //println!("Current node ID: {}", current_node_obj.id);
+            //println!("Current onion: {}", current_onion);
+            //println!("Current enc_sym_key: {}", curr_enc_sym_key);
         } else {
             // Capture the final recipient data
             final_recipient_id = parts[0].to_string();
@@ -77,12 +79,12 @@ pub fn process_onion(
         }
     }
 
-    println!("Done with intermediary node decryption. Returning from process onion.");
+    //println!("Done with intermediary node decryption. Returning from process onion.");
     let result = format!(
         "{}|{}|{}",
         final_recipient_id, final_enc_sym_key, final_encrypted_message
     );
-    println!("Final result from process onion: {}", result);
+    //println!("Final result from process onion: {}", result);
 
     Ok(result)
 }
@@ -101,7 +103,7 @@ pub fn onion_encrypt(
     server_nodes: &[(&str, &RsaPublicKey)]
 ) -> Result<String, Box<dyn std::error::Error>> {
 
-    println!("Inside Onion Encrypt");
+    //println!("Inside Onion Encrypt");
     let mut rng = OsRng;
 
     // STEP 1: Start with the innermost encryption layer for the recipient
@@ -125,7 +127,7 @@ pub fn onion_encrypt(
     );
 
     //println!("Initial encrypted layer for recipient: {}", layer);
-    println!("Done with encrypted layer for recipient");
+    //println!("Done with encrypted layer for recipient");
 
     // STEP 2: wrap each subsequent layer in reverse order (starting from Node 3)
     for (node_id, node_pubkey) in server_nodes.iter().rev() {
@@ -149,7 +151,7 @@ pub fn onion_encrypt(
             STANDARD.encode(&encrypted_layer)
         );
         //println!("Layer after wrapping with node {}: {}", node_id, layer);
-        println!("Done wrapping with node : {}", node_id);
+        //eprintln!("Done wrapping with node : {}", node_id);
     }
 
 
@@ -184,11 +186,11 @@ pub fn onion_receive(
     match STANDARD.decode(enc_sym_key4) {
         Ok(enc_sym_key_bytes) => {
             //println!("Decoded symmetric key bytes: {:?}", enc_sym_key_bytes);
-            println!("Decoded symmetric key bytes");
+            //println!("Decoded symmetric key bytes");
             match node_seckey.decrypt(Pkcs1v15Encrypt, &enc_sym_key_bytes) {
                 Ok(sym_key4) => {
                     //println!("Decrypted symmetric key: {:?}", sym_key4);
-                    println!("Decrypted symmetric key");
+                    //println!("Decrypted symmetric key");
                     // step 4: use the symmetric key to decrypt the message
                     let aes_gcm4 = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&sym_key4));
                     let nonce4 = Nonce::from_slice(&[0; 12]); // Same nonce as used in encryption
@@ -197,12 +199,12 @@ pub fn onion_receive(
                     match STANDARD.decode(encrypted_message) {
                         Ok(encrypted_message_bytes) => {
                             //println!("Decoded encrypted message: {:?}", encrypted_message_bytes);
-                            println!("Decoded encrypted message");
+                            //println!("Decoded encrypted message");
                             match aes_gcm4.decrypt(nonce4, encrypted_message_bytes.as_ref()) {
                                 Ok(decrypted_message) => {
                                     // convert decrypted message to string and print
                                     let message_text = String::from_utf8_lossy(&decrypted_message);
-                                    println!("Decrypted message: {}", message_text);
+                                    //println!("Decrypted message: {}", message_text);
                                     // Here, you can return the decrypted message or a successful result
                                     Ok(message_text.to_string())  // Example return
                                 },

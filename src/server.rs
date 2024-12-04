@@ -36,7 +36,7 @@ fn handle_client(
         .to_string();
     
     // Debugging: Show the raw received data
-    println!("Raw received data: {:?}", username_and_pem);
+    //println!("Raw received data: {:?}", username_and_pem);
 
     // Parse the username and PEM key from the received data
     let mut lines = username_and_pem.lines();
@@ -44,8 +44,8 @@ fn handle_client(
     let pem = lines.collect::<Vec<&str>>().join("\n");
 
     // Debugging: Check parsed parts
-    println!("Parsed Username: {:?}", username);
-    println!("Parsed PEM Key Contents:\n{}", pem);
+    //println!("Parsed Username: {:?}", username);
+    //println!("Parsed PEM Key Contents:\n{}", pem);
 
     // Validate PEM format
     if !pem.starts_with("-----BEGIN RSA PUBLIC KEY-----") || !pem.ends_with("-----END RSA PUBLIC KEY-----") {
@@ -62,20 +62,20 @@ fn handle_client(
         }
     };
 
-    println!("User '{}' connected with valid PEM key.", username);
+    //println!("User '{}' connected with valid PEM key.", username);
 
     // Add user to the list
-    match update_user_list("UserKeys.txt", &username, &pubkey) {
-        Ok(_) => println!("Added user to list of existing users!"),
-        Err(e) => eprintln!("Error adding user to list of existing users: {}", e),
-    };
+    // match update_user_list("UserKeys.txt", &username, &pubkey) {
+    //     Ok(_) => println!("Added user to list of existing users!"),
+    //     Err(e) => eprintln!("Error adding user to list of existing users: {}", e),
+    // };
 
     // broadcast the new user's username and public key to all clients
     {
         let clients = clients.lock().unwrap();
         let broadcast_message = format!("{}\n{}", username, pem);
         for (recipient, mut recipient_stream) in clients.iter() {
-            println!("Broadcasting new key to {}", recipient);
+            //println!("Broadcasting new key to {}", recipient);
             recipient_stream.write_all(broadcast_message.as_bytes()).unwrap();
         }
     }
@@ -86,7 +86,7 @@ fn handle_client(
         let mut users = existing_users.lock().unwrap();
         clients.insert(username.clone(), stream.try_clone().unwrap());
         users.insert(username.clone(), pubkey);
-        println!("Current users: {:?}", clients.keys().collect::<Vec<_>>());
+        eprintln!("Current users: {:?}", clients.keys().collect::<Vec<_>>());
     }
 
     // eileen: listen for messages from client and create reader and buffer. server reads until it receives a newline at end of message to mark complete onion
@@ -101,17 +101,17 @@ fn handle_client(
         match reader.read_line(&mut buffer) {
             Ok(0) => {
                 // Connection closed, exit the loop
-                println!("Client disconnected");
+                eprintln!("Client disconnected");
                 break;
             }
             Ok(_) => {
                 // Clean the received message and debug
                 let received_message = buffer.trim().to_string();
-                println!("Received message: {:?}", received_message);
+                //println!("Received message: {:?}", received_message);
 
                 // Step 2: Split the received message format: Recipient_ID|Enc_R_PK(sym_K4)|Enc_symK4(message)
                 let parts: Vec<&str> = received_message.split('|').collect();
-                println!("Parsed parts: {:?}", parts);
+                //println!("Parsed parts: {:?}", parts);
 
                 // Step 3: Ensure the message format has three parts (Recipient ID, Encrypted Public Key, Encrypted Message)
                 if parts.len() != 3 {
@@ -139,9 +139,9 @@ fn handle_client(
                 let encrypted_message = parts[2];  // Extract encrypted message
 
                 // Print statements for debugging
-                println!("Recipient: {}", recipient);
-                println!("Encrypted Symmetric Key: {}", enc_sym_key);
-                println!("Encrypted Message: {}", encrypted_message);
+                // println!("Recipient: {}", recipient);
+                // println!("Encrypted Symmetric Key: {}", enc_sym_key);
+                // println!("Encrypted Message: {}", encrypted_message);
 
 
                 // find the recipient's stream and send the entire decrypted message
@@ -168,12 +168,13 @@ fn handle_client(
         let mut users = existing_users.lock().unwrap();
         clients.remove(&username);
         users.remove(&username);
-        println!("User '{}' disconnected. Remaining users: {:?}", username, clients.keys().collect::<Vec<_>>());
+        eprintln!("User '{}' disconnected. Remaining users: {:?}", username, clients.keys().collect::<Vec<_>>());
     }
 }
 
 
 fn main() {
+    env_logger::init();
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
     let clients_mutex = Arc::new(Mutex::new(HashMap::new()));
     let pubkeys_mutex = Arc::new(Mutex::new(HashMap::new()));
@@ -206,11 +207,11 @@ fn main() {
         }
 
         // Debug print to check if nodes are properly registered
-        println!("Node registry after population:");
-        for (id, node) in &*registry {  // Dereference `registry` here
-            println!("ID: {}, Public Key: {:?}", id, node.public_key);
-        }
-        println!("Loaded server public keys and private keys and node registry.");
+        // println!("Node registry after population:");
+        // for (id, node) in &*registry {  // Dereference `registry` here
+        //     println!("ID: {}, Public Key: {:?}", id, node.public_key);
+        // }
+        // println!("Loaded server public keys and private keys and node registry.");
     }
 
     // Now start the TCP listener
